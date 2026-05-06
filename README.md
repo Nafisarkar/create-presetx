@@ -6,13 +6,13 @@ Built with **Bun** and powered by the new **Vite React Compiler**, `create-prese
 
 ## Features
 
-- ⚡️ **Vite + React Compiler:** Uses the bleeding-edge `react-compiler-ts` template out of the box.
-- 🛣️ **Routing Ready:** Choose between standard **React Router** or full-typesafe **TanStack Router**.
-- 🎨 **Styling & UI:** Instant setup for **Tailwind CSS**, pre-configured for either **Shadcn UI** (with path aliases and utils ready to go) or **DaisyUI**.
-- 📦 **Runtime Freedom:** Choose to install your dependencies via `bun` or `npm`.
-- 🪄 **Zero-Config Tooling:** Add **Biome** for instant formatting and linting, and choose between **Lucide** or **Remix** icons.
+- **Vite + React Compiler:** Uses the bleeding-edge `react-compiler-ts` template out of the box.
+- **Routing Ready:** Choose between standard **React Router** or full-typesafe **TanStack Router**.
+- **Styling & UI:** Instant setup for **Tailwind CSS**, pre-configured for either **Shadcn UI** (with path aliases and utils ready to go) or **DaisyUI**.
+- **Runtime Freedom:** Choose to install your dependencies via `bun` or `npm`.
+- **Zero-Config Tooling:** Add **Biome** for instant formatting and linting, and choose between **Lucide** or **Remix** icons.
 
-## 📦 Usage
+## Usage
 
 You don't need to install anything globally. Just run the initialization command with your preferred package manager:
 
