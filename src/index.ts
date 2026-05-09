@@ -6,6 +6,9 @@ import { execa } from "execa";
 import color from "picocolors";
 import { copyTemplate } from "./helper.js";
 
+// Check for --test flag to skip actual project creation
+const isTestMode = process.argv.includes("--test");
+
 async function main() {
 	console.clear();
 	p.intro(`${color.bgBlue(color.whiteBright(" Create React App "))}`);
@@ -45,6 +48,19 @@ async function main() {
 							label: "TanStack-Router",
 							hint: "A full‑stack framework built on Router, designed for server rendering, streaming, and production‑ready deployments.",
 						},
+					],
+				}),
+			/**
+			 * ADD:Option with no state management
+			 */
+			statemanagement: () =>
+				p.select({
+					message: `${color.greenBright("State Management:")}`,
+					options: [
+						{ value: "jotai", label: "Jotai" },
+						{ value: "zustand", label: "Zustand" },
+						{ value: "redux", label: "Redux" },
+						{ value: "none", label: "None" },
 					],
 				}),
 
@@ -142,7 +158,7 @@ async function main() {
 							hint: "Zod is a TypeScript-first validation library.",
 						},
 					],
-					required: true,
+					required: false,
 				}),
 		},
 		{
@@ -159,6 +175,7 @@ async function main() {
 		path,
 		runtime,
 		router,
+		statemanagement,
 		tailwind,
 		ui,
 		icons,
@@ -167,8 +184,16 @@ async function main() {
 		additional,
 	} = project;
 
-	console.log(additional);
 	const installCmd = runtime === "bun" ? "add" : "install";
+
+	if (isTestMode) {
+		p.log.info("Running in test mode - no files will be created");
+		p.log.info(`Would create project at: ${path}`);
+		p.log.info(`Runtime: ${runtime}, Router: ${router}, Tailwind: ${tailwind}`);
+		p.log.info(`UI: ${ui}, Icons: ${icons}, Animation: ${animation}`);
+		p.log.info(`Formatter: ${formatter}, Additional: ${additional}`);
+		return;
+	}
 
 	if (process.env.environment !== "development") {
 		try {
@@ -185,15 +210,21 @@ async function main() {
 
 			s.message("Configuring templates and routing...");
 			// Build the dependency list
-			const dependencies = [];
-			const devDependencies = [];
+			const dependencies: string[] = [];
+			const devDependencies: string[] = [];
+			const notes: string[] = [];
 			const targetSrcDir = join(path, "src");
 
 			/**
 			 * CLEANING-----------------------------------------------------
 			 */
-			await fs.rm(join(targetSrcDir, "App.css"), { force: true });
-			await fs.rm(join(targetSrcDir, "App.tsx"), { force: true });
+			const filesToRemove = [
+				join(targetSrcDir, "App.css"),
+				join(targetSrcDir, "App.tsx"),
+			];
+			await Promise.all(
+				filesToRemove.map((file) => fs.rm(file, { force: true })),
+			);
 
 			/**
 			 * ROUTER-----------------------------------------------------
@@ -247,15 +278,33 @@ async function main() {
 			}
 
 			/**
+			 * STATE MANAGEMENT-----------------------------------------------------
+			 */
+			if (statemanagement === "jotai") {
+				dependencies.push("jotai");
+			}
+			if (statemanagement === "zustand") {
+				dependencies.push("zustand");
+			}
+			if (statemanagement === "redux") {
+				dependencies.push("@reduxjs/toolkit", "react-redux");
+			}
+
+			/**
 			 * TAILWIND-----------------------------------------------------
 			 */
 			if (tailwind) {
-				if (router === "react-router") {
-					// replace the vite.config.ts
-					await fs.rm(join(path, "vite.config.ts"), { force: true });
-					await fs.rm(join(targetSrcDir, "index.css"), { force: true });
-					await fs.rm(join(targetSrcDir, "App.tsx"), { force: true });
+				// Remove common files first
+				const tailwindFilesToRemove = [
+					join(path, "vite.config.ts"),
+					join(targetSrcDir, "index.css"),
+				];
+				await Promise.all(
+					tailwindFilesToRemove.map((file) => fs.rm(file, { force: true })),
+				);
 
+				if (router === "react-router") {
+					await fs.rm(join(targetSrcDir, "App.tsx"), { force: true });
 					await copyTemplate(
 						"templates/tailwind/react_router/vite.config.ts",
 						join(path, "vite.config.ts"),
@@ -268,11 +317,8 @@ async function main() {
 						"templates/tailwind/react_router/App.tsx",
 						join(targetSrcDir, "App.tsx"),
 					);
-				}
-				if (router === "tanstack") {
-					await fs.rm(join(path, "vite.config.ts"), { force: true });
-					await fs.rm(join(targetSrcDir, "index.css"), { force: true });
-					await fs.rm(join(join(targetSrcDir, "routes"), "index.tsx"), {
+				} else if (router === "tanstack") {
+					await fs.rm(join(targetSrcDir, "routes", "index.tsx"), {
 						force: true,
 					});
 					await copyTemplate(
@@ -285,7 +331,7 @@ async function main() {
 					);
 					await copyTemplate(
 						"templates/tailwind/tanstack_router/index.tsx",
-						join(join(targetSrcDir, "routes"), "index.tsx"),
+						join(targetSrcDir, "routes", "index.tsx"),
 					);
 				}
 				dependencies.push("tailwindcss", "@tailwindcss/vite");
@@ -335,7 +381,7 @@ async function main() {
 					"templates/daisyui/index.css",
 					join(targetSrcDir, "index.css"),
 				);
-				dependencies.push("daisyui@latest");
+				dependencies.push("daisyui");
 			}
 
 			/**
@@ -347,6 +393,22 @@ async function main() {
 			if (icons === "remix") dependencies.push("remixicon");
 
 			/**
+			 * ADDITIONAL PACKAGES-----------------------------------------------------
+			 */
+			if (additional && Array.isArray(additional)) {
+				if (additional.includes("lenis")) {
+					notes.push(
+						"import 'lenis/dist/lenis.css'",
+						"Add this import to your main.tsx or index.tsx to include Lenis styles",
+					);
+					dependencies.push("lenis");
+				}
+				if (additional.includes("zod")) {
+					dependencies.push("zod");
+				}
+			}
+
+			/**
 			 * ANIMATION-----------------------------------------------------
 			 */
 			if (animation === "framer") {
@@ -354,7 +416,8 @@ async function main() {
 			}
 
 			if (animation === "gsap") {
-				dependencies.push("motion");
+				dependencies.push("gsap");
+				dependencies.push("@gsap/react");
 			}
 
 			/**
@@ -366,6 +429,18 @@ async function main() {
 					join(path, "biome.json"),
 				);
 				devDependencies.push("@biomejs/biome");
+			}
+
+			if (formatter === "prettier") {
+				await copyTemplate(
+					"templates/prettier/.prettierrc",
+					join(path, ".prettierrc"),
+				);
+				await copyTemplate(
+					"templates/prettier/.prettierignore",
+					join(path, ".prettierignore"),
+				);
+				devDependencies.push("prettier");
 			}
 
 			/**
@@ -394,12 +469,17 @@ async function main() {
 			s.stop("Project scaffolded successfully!");
 
 			if (dependencies.length > 0) {
-				`${color.cyan("Dependencies:")}\n  - ${dependencies.join("\n  - ")}`;
+				p.log.step(
+					`${color.cyan("Dependencies:")}\n  - ${dependencies.join("\n  - ")}`,
+				);
 			}
 			if (devDependencies.length > 0) {
 				p.log.step(
 					`${color.blue("Dev Dependencies:")}\n  - ${devDependencies.join("\n  - ")}`,
 				);
+			}
+			if (notes.length > 0) {
+				p.log.step(`${color.yellow("Notes:")}\n  - ${notes.join("\n  - ")}`);
 			}
 		} catch (error) {
 			s.stop("Installation failed");
